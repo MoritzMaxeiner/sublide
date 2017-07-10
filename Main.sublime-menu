@@ -1,0 +1,31 @@
+[
+  {
+    "caption": "Preferences",
+    "mnemonic": "n",
+    "id": "preferences",
+    "children": [
+      {
+        "caption": "Package Settings",
+        "mnemonic": "P",
+        "id": "package-settings",
+        "children": [
+          {
+            "caption": "Sublide",
+            "children": [
+              {
+                "command": "open_file",
+                "args": {"file": "${packages}/sublide/sublide.sublime-settings"},
+                "caption": "Settings – Default"
+              },
+              {
+                "command": "open_file",
+                "args": {"file": "${packages}/User/sublide.sublime-settings"},
+                "caption": "Settings – User"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

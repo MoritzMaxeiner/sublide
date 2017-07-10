@@ -1,0 +1,7 @@
+[
+	{
+		"command": "dcd_goto_definition",
+		"caption": "Goto Definition",
+		"id": "dcd_goto_definition",
+	}
+]
