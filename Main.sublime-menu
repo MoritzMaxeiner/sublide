@@ -1,4 +1,24 @@
 [
+
+  {
+    "id": "tools",
+    "children": [
+      {
+        "caption": "Sublide",
+        "id": "sublide-tools",
+        "children": [
+          {
+            "command": "dcd_restart_server",
+            "caption": "Restart DCD server"
+          },
+          {
+            "command": "dcd_refresh_include_paths",
+            "caption": "Refresh DCD include paths"
+          }
+        ]
+      }
+    ]
+  },
   {
     "caption": "Preferences",
     "mnemonic": "n",
@@ -11,6 +31,7 @@
         "children": [
           {
             "caption": "Sublide",
+            "id": "sublide-settings",
             "children": [
               {
                 "command": "open_file",
@@ -21,7 +42,7 @@
                 "command": "open_file",
                 "args": {"file": "${packages}/User/sublide.sublime-settings"},
                 "caption": "Settings – User"
-              }
+              },
             ]
           }
         ]

@@ -7,7 +7,7 @@ from functools import reduce
 from codecs import escape_decode
 
 from sublide.util import is_dlang, open_file_byte_offset, goto_offset, encoding_offset_to_char_offset, char_offset_to_encoding_offset
-
+import sublide.dub
 
 class Server(sublime_plugin.ViewEventListener):
 
@@ -44,14 +44,14 @@ class Server(sublime_plugin.ViewEventListener):
 	instance = None
 
 	def __init__(self, view):
-		Server.refCount += 1
-		if Server.refCount == 1:
-			Server.start()
+		type(self).refCount += 1
+		if type(self).refCount == 1:
+			type(self).start()
 
 	def __del__(self):
-		Server.refCount -= 1
-		if Server.refCount == 0:
-			Server.stop()
+		type(self).refCount -= 1
+		if type(self).refCount == 0:
+			type(self).stop()
 
 	@classmethod
 	def start(cls):
@@ -59,9 +59,11 @@ class Server(sublime_plugin.ViewEventListener):
 		for port in range(settings.get('dcd_server_port_range')[0], settings.get('dcd_server_port_range')[1] + 1):
 			try:
 				cls.instance = cls.Instance(settings.get('dcd_server_app_path'), port, settings.get('dcd_server_include_paths'))
-				break
 			except cls.PortInUseException:
 				continue
+			else:
+				Client.add_include_paths(list(chain.from_iterable(sublide.dub.DUB.cached_include_paths.values())))
+				break
 
 		settings.add_on_change('dcd-server', cls.restart)
 
@@ -139,14 +141,14 @@ class Client(sublime_plugin.EventListener):
 
 	@classmethod
 	def get_completions(cls, view, point):
-		output = cls.__exec(view, ['-c', str(char_offset_to_encoding_offset(view, point, 'utf-8'))]).decode('utf-8').splitlines()
+		output = cls.__exec(['-c', str(char_offset_to_encoding_offset(view, point, 'utf-8'))], view.substr(sublime.Region(0, view.size())).encode('utf-8')).decode('utf-8').splitlines()
 		if len(output) == 0:
 			return None, []
 		return output.pop(0), output
 
 	@classmethod
 	def get_symbol_location(cls, view, point):
-		output = cls.__exec(view, ['-c', str(char_offset_to_encoding_offset(view, point, 'utf-8')), '--symbolLocation']).decode('utf-8').splitlines()
+		output = cls.__exec(['-c', str(char_offset_to_encoding_offset(view, point, 'utf-8')), '--symbolLocation'], view.substr(sublime.Region(0, view.size())).encode('utf-8')).decode('utf-8').splitlines()
 		if len(output) == 0 or output[0] == 'Not found':
 			return None, None
 		return output[0].split('\t')
@@ -154,7 +156,7 @@ class Client(sublime_plugin.EventListener):
 	@classmethod
 	def get_documentation(cls, view, point):
 		# Get UTF-8 encoded output
-		doc = cls.__exec(view, ['-c', str(char_offset_to_encoding_offset(view, point, 'utf-8')), '--doc'])
+		doc = cls.__exec(['-c', str(char_offset_to_encoding_offset(view, point, 'utf-8')), '--doc'], view.substr(sublime.Region(0, view.size())).encode('utf-8'))
 		if len(doc) == 0:
 			return None
 		# Remove escaping without touching code points encoded as multiple code units
@@ -164,10 +166,15 @@ class Client(sublime_plugin.EventListener):
 		return doc
 
 	@classmethod
-	def __exec(cls, view, args):
+	def add_include_paths(cls, include_paths):
+		if (len(include_paths) > 0):
+			cls.__exec(list(chain.from_iterable(zip(repeat('-I'), include_paths))))
+
+	@classmethod
+	def __exec(cls, args, stdin=[]):
 		assert Server.instance is not None
 		instance = Popen([settings.get('dcd_client_app_path'), '--tcp', '--port', str(Server.instance.port)] + args, stdin=PIPE, stdout=PIPE)
-		return instance.communicate(view.substr(sublime.Region(0, view.size())).encode('utf-8'))[0]
+		return instance.communicate(stdin)[0]
 
 	@classmethod
 	def parse_identifiers(cls, line):
@@ -189,6 +196,19 @@ class DcdGotoDefinitionCommand(sublime_plugin.TextCommand):
 			else:
 				goto_offset(self.view, encoding_offset_to_char_offset(self.view, int(offset), 'utf-8'))
 
+
+class DcdRestartServerCommand(sublime_plugin.WindowCommand):
+	def is_enabled(self):
+		return sublide.dcd.Server.instance is not None
+	def run(self):
+		Server.restart()
+
+class DcdRefreshIncludePathsCommand(sublime_plugin.WindowCommand):
+	def is_enabled(self):
+		return sublide.dcd.Server.instance is not None
+	def run(self):
+		include_paths = sublide.dub.DUB.refresh_include_paths()
+		Client.add_include_paths(include_paths)
 
 _completion_kind_map = {
 	'c': 'class',
