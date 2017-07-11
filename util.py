@@ -14,13 +14,13 @@ def goto_offset(view, offset):
 
 def char_offset_to_encoding_offset(view, char_offset, encoding):
 	"""Given a character offset into a view, returns the corresponding byte offset w.r.t. to the given encoding"""
-	assert char_offset < view.size()
+	assert char_offset <= view.size()
 	encoded = view.substr(sublime.Region(0, char_offset)).encode(encoding)
 	return len(encoded)
 
 def encoding_offset_to_char_offset(view, byte_offset, encoding):
 	"""Given a byte offset into a view w.r.t. the given encoding, returns the corresponding character offset"""
-	assert byte_offset < view.size()
+	assert byte_offset <= view.size()
 	encoded = view.substr(sublime.Region(0, byte_offset)).encode(encoding)
 	if len(encoded) == byte_offset:
 		return byte_offset
