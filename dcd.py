@@ -51,21 +51,26 @@ class Server(sublime_plugin.ViewEventListener):
 	def __del__(self):
 		type(self).refCount -= 1
 		if type(self).refCount == 0:
-			type(self).stop()
+			if Server.instance is not None:
+				type(self).stop()
 
 	@classmethod
 	def start(cls):
 		assert cls.instance is None
 		for port in range(settings.get('dcd_server_port_range')[0], settings.get('dcd_server_port_range')[1] + 1):
 			try:
-				cls.instance = cls.Instance(settings.get('dcd_server_app_path'), port, settings.get('dcd_server_include_paths'))
+				app_path = settings.get('dcd_server_app_path')
+				cls.instance = cls.Instance(app_path, port, settings.get('dcd_server_include_paths'))
+			except FileNotFoundError:
+				print('sublide: DCD functionality not available, application \"' + app_path + '\" not found')
+				settings.add_on_change('dcd-server', cls.start)
+				break
 			except cls.PortInUseException:
 				continue
 			else:
 				Client.add_include_paths(list(chain.from_iterable(sublide.dub.DUB.cached_include_paths.values())))
+				settings.add_on_change('dcd-server', cls.restart)
 				break
-
-		settings.add_on_change('dcd-server', cls.restart)
 
 	@classmethod
 	def stop(cls):
@@ -84,10 +89,8 @@ class Server(sublime_plugin.ViewEventListener):
 class Client(sublime_plugin.EventListener):
 
 	def on_query_completions(self, view, prefix, locations):
-		if not is_dlang(view.settings().get('syntax')):
+		if not is_dlang(view.settings().get('syntax')) or Server.instance is None:
 			return
-
-		assert Server.instance is not None
 
 		point = locations[0] - len(prefix)
 		if (view.substr(point) != '.'):
@@ -100,7 +103,7 @@ class Client(sublime_plugin.EventListener):
 			return
 
 	def on_modified_async(self, view):
-		if not is_dlang(view.settings().get('syntax')):
+		if not is_dlang(view.settings().get('syntax')) or Server.instance is None:
 			return
 
 		point = view.sel()[0].begin()
@@ -118,7 +121,7 @@ class Client(sublime_plugin.EventListener):
 			view.hide_popup()
 
 	def on_hover(self, view, point, hover_zone):
-		if not is_dlang(view.settings().get('syntax')):
+		if not is_dlang(view.settings().get('syntax')) or Server.instance is None:
 			return
 
 		if hover_zone == sublime.HOVER_TEXT:
@@ -173,8 +176,14 @@ class Client(sublime_plugin.EventListener):
 	@classmethod
 	def __exec(cls, args, stdin=[]):
 		assert Server.instance is not None
-		instance = Popen([settings.get('dcd_client_app_path'), '--tcp', '--port', str(Server.instance.port)] + args, stdin=PIPE, stdout=PIPE)
-		return instance.communicate(stdin)[0]
+		try:
+			app_path = settings.get('dcd_client_app_path')
+			instance = Popen([app_path, '--tcp', '--port', str(Server.instance.port)] + args, stdin=PIPE, stdout=PIPE)
+		except FileNotFoundError:
+			print('sublide: DCD functionality not available, application \"' + app_path + '\" not found')
+			return b''
+		else:
+			return instance.communicate(stdin)[0]
 
 	@classmethod
 	def parse_identifiers(cls, line):
@@ -187,7 +196,7 @@ class Client(sublime_plugin.EventListener):
 
 class DcdGotoDefinitionCommand(sublime_plugin.TextCommand):
 	def is_enabled(self):
-		return is_dlang(self.view.settings().get('syntax'))
+		return is_dlang(self.view.settings().get('syntax')) and Server.instance is not None
 	def run(self, edit):
 		file_name, offset = Client.get_symbol_location(self.view, self.view.sel()[0].a)
 		if file_name is not None and offset is not None:
@@ -199,13 +208,13 @@ class DcdGotoDefinitionCommand(sublime_plugin.TextCommand):
 
 class DcdRestartServerCommand(sublime_plugin.WindowCommand):
 	def is_enabled(self):
-		return sublide.dcd.Server.instance is not None
+		return Server.instance is not None
 	def run(self):
 		Server.restart()
 
 class DcdRefreshIncludePathsCommand(sublime_plugin.WindowCommand):
 	def is_enabled(self):
-		return sublide.dcd.Server.instance is not None
+		return Server.instance is not None
 	def run(self):
 		include_paths = sublide.dub.DUB.refresh_include_paths()
 		Client.add_include_paths(include_paths)

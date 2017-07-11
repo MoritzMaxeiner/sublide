@@ -59,6 +59,8 @@ class DUB(sublime_plugin.ViewEventListener):
 	@classmethod
 	def describe(cls, path):
 		description = cls.__exec(['describe', '--root=' + path, "--vquiet"])
+		if len(description) == 0:
+			return None
 		try:
 			return json.loads(description)
 		except ValueError:
@@ -66,8 +68,14 @@ class DUB(sublime_plugin.ViewEventListener):
 
 	@classmethod
 	def __exec(cls, args):
-		instance = Popen([settings.get('dub_app_path')] + args, stdout=PIPE)
-		return instance.communicate()[0].decode('utf-8')
+		try:
+			app_path = settings.get('dub_app_path')
+			instance = Popen([app_path] + args, stdout=PIPE)
+		except FileNotFoundError:
+			print('sublide: DUB functionality not available, application \"' + app_path + '\" not found')
+			return []
+		else:
+			return instance.communicate()[0].decode('utf-8')
 
 
 def plugin_loaded():
