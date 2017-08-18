@@ -103,7 +103,7 @@ class Client(sublime_plugin.EventListener):
 			return
 
 	def on_modified_async(self, view):
-		if not is_dlang(view.settings().get('syntax')) or Server.instance is None:
+		if not is_dlang(view.settings().get('syntax')) or settings.get('dcd_calltip_disable') or Server.instance is None:
 			return
 
 		point = view.sel()[0].begin()

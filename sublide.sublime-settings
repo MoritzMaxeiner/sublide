@@ -5,5 +5,6 @@
 	"dcd_client_app_path": "dcd-client",
 	"dcd_documentation_popup_max_height": 24,
 	"dcd_calltip_popup_max_height": 8,
-	"dub_app_path": "dub"
+	"dub_app_path": "dub",
+	"dcd_calltip_disable": false,
 }
